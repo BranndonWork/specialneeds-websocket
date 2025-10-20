@@ -1,0 +1,76 @@
+const VERBOSE = false;
+
+// A redis cache for storing api responses
+class RedisCache {
+    constructor() {
+        this.getRedisConnection()
+    }
+
+    async getRedisConnection() {
+        if (this.client) return this.client;
+        const redis = require('redis');
+        const redisConfig = {
+            host: process.env.REDIS_HOST || 'localhost',
+            auth_pass: process.env.REDIS_PASSWORD || null,
+        }
+        const client = redis.createClient(redisConfig);
+        console.log("Connecting to redis");
+        await client.connect();
+        client.on('connect', () => {
+            console.log("connected to redis");
+        });
+        client.on('error', err => {
+            console.log('redis error', err.message)
+        });
+        client.set("foo", 'bar');
+        client.get("foo", function (err, reply) {
+            console.log('foo check', reply.toString())
+        })
+        this.redis = redis;
+        this.client = client;
+    }
+
+    _generateCacheKey(args) {
+        const crypto = require('crypto');
+        const hash = crypto.createHash('sha256');
+        hash.update(JSON.stringify(args));
+        return hash.digest('hex');
+    }
+    async get(key) {
+        if (!this.client) await this.getRedisConnection();
+        if (!typeof key === 'string') key = this._generateCacheKey(key);
+        const cached = await this.client.get(key);
+        if (cached) {
+            if (VERBOSE) console.log("Cache hit for key: ", { key });
+            return JSON.parse(cached);
+        }
+        return null;
+    }
+    async set(key, value, ttl) {
+        if (!this.client) await this.getRedisConnection();
+        if (!ttl || isNaN(ttl)) return value;
+        if (!typeof key === 'string') key = this._generateCacheKey(key);
+        await this.client.set(key, JSON.stringify(value), { 'EX': ttl });
+        return value;
+    }
+    async delete(key) {
+        if (!this.client) await this.getRedisConnection();
+        if (!typeof key === 'string') key = this._generateCacheKey(key);
+        return await this.client.del(key);
+    }
+    async flushall() {
+        if (!this.client) await this.getRedisConnection();
+        // get all redis keys
+        const keys = await this.client.keys('*');
+        if (!keys.length) {
+            if (VERBOSE) console.log("No keys to flush");
+            return true
+        }
+        // delete all keys
+        await this.client.del(keys);
+        if (VERBOSE) console.log("Flushed redis cache", keys);
+        return true;
+    }
+}
+
+module.exports = RedisCache;

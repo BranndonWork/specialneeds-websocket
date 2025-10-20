@@ -1,0 +1,95 @@
+// Importing the required modules
+const WebSocketServer = require('ws');
+const API = require('./api.js');
+
+const userAPIs = {};
+
+const getUserApi = (ws) => {
+    let websocketId = ws.id;
+    if (!userAPIs[websocketId]) {
+        userAPIs[websocketId] = new API(ws);
+    }
+    return userAPIs[websocketId];
+}
+
+
+// Creating an instance of API class
+
+// Sending message to client
+const sendMessage = (api, action, data) => {
+    try {
+        data = JSON.stringify({
+            'action': action,
+            'data': data
+        })
+    } catch (error) {
+        console.log("Error parsing JSON", error, action, data)
+    }
+    api.websocket.send(data)
+}
+
+// Handling the action received from client
+const handleAction = (api, action, data) => {
+    api.runAction(action, data).then((response) => {
+        console.log("RUN ACTION RESPONSE: ", { action, data, response })
+        sendMessage(api, action, response)
+    }).catch((error) => {
+        console.log(error)
+    })
+}
+
+const handleQueryAPI = (api, endpoint, data) => {
+    api.queryAPI(endpoint, data).then((response) => {
+        console.log("RUN ENDPOINT RESPONSE: ", { endpoint, data, response })
+        sendMessage(api, endpoint, response)
+    }).catch((error) => {
+        console.log(error)
+    })
+}
+
+
+// Handling the message received from client
+const handleMessage = (ws, data) => {
+    try {
+        const api = getUserApi(ws);
+        data = JSON.parse(data)
+        // check to see if data has action and data properties
+        if (data.action && data.data) {
+            handleAction(api, data.action, data.data)
+            return
+        }
+
+        // check to see if data has endpoint and data properties
+        if (data.endpoint && data.data) {
+            handleQueryAPI(api, data.endpoint, data.data)
+            return
+        }
+
+    } catch (error) {
+        ws.send(`Server has received your message: ${data}`)
+    }
+}
+
+// Creating a websocket server
+const wss = new WebSocketServer.Server({
+    port: 8080
+})
+
+// Creating connection using websocket
+wss.on("connection", ws => {
+    // sending message
+    ws.on("message", (data) => {
+        handleMessage(ws, data)
+    });
+    // handling what to do when clients disconnects from server
+    ws.on("close", () => {
+        // console.log("the client has closed the connection");
+        delete userAPIs[ws.id];
+    });
+    // handling client connection error
+    ws.onerror = function (error) {
+        console.log("An error occured", error);
+    }
+
+});
+console.log("The WebSocket server is running on port 8080");

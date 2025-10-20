@@ -1,0 +1,25 @@
+FROM node:17.8
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=8080
+
+ENV NODE_ENV="production"
+ENV API_URL="/api/"
+ENV VERBOSE=0
+ENV PORT=8080
+
+# Create code directory
+WORKDIR /code
+
+# Copy app files
+COPY . .
+
+# Install app dependencies
+RUN npm install --production --frozen-lockfile --silent
+
+# Expose port
+EXPOSE 8080
+
+# Start PM2 with ecosystem file
+CMD ["node", "/code/server.js"]

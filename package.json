@@ -1,0 +1,21 @@
+{
+  "name": "specialneeds-websocket",
+  "version": "1.0.0",
+  "description": "WebSocket service for real-time notifications (future use)",
+  "private": true,
+  "scripts": {
+    "dev": "cd webroot && npm start",
+    "install-deps": "cd webroot && npm install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BranndonWork/specialneeds-websocket.git"
+  },
+  "keywords": [
+    "websocket",
+    "real-time",
+    "notifications",
+    "specialneeds"
+  ],
+  "author": "BranndonWork"
+}
